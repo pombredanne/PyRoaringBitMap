@@ -2,6 +2,13 @@ import ctypes
 import time
 libroaring = ctypes.CDLL('libroaring.so')
 
+def load(fp):
+    buff = fp.read()
+    return BitMap.deserialize(buff)
+
+def dump(fp, bitmap):
+    buff = bitmap.serialize()
+    fp.write(buff)
 
 class BitMap:
     __BASE_TYPE__ = ctypes.c_uint32
@@ -13,6 +20,14 @@ class BitMap:
             self.__obj__ = libroaring.roaring_bitmap_create()
         elif isinstance(values, BitMap):
             self.__obj__ = libroaring.roaring_bitmap_copy(values.__obj__)
+        elif isinstance(values, range):
+            if values.step < 0:
+                values = range(values.stop+1, values.start+1, -values.step)
+            if values.start >= values.stop:
+                raise ValueError('Invalid range: max value must be greater than min value.')
+            self.check_value(values.start)
+            self.check_value(values.stop)
+            self.__obj__ = libroaring.roaring_bitmap_from_range(values.start, values.stop, values.step)
         else:
             self.check_values(values)
             size = len(values)
@@ -21,7 +36,10 @@ class BitMap:
             self.__obj__ = libroaring.roaring_bitmap_of_ptr(size, values)
 
     def __del__(self):
-        libroaring.roaring_bitmap_free(self.__obj__)
+        try:
+            libroaring.roaring_bitmap_free(self.__obj__)
+        except AttributeError: # happens if there is an excepion in __init__ before the creation of __obj__
+            pass
 
     @staticmethod
     def check_value(value):
@@ -37,6 +55,10 @@ class BitMap:
         self.check_value(value)
         libroaring.roaring_bitmap_add(self.__obj__, value)
 
+    def remove(self, value):
+        self.check_value(value)
+        libroaring.roaring_bitmap_remove(self.__obj__, value)
+
     def __contains__(self, value):
         self.check_value(value)
         return libroaring.roaring_bitmap_contains(self.__obj__, value)
@@ -50,12 +72,12 @@ class BitMap:
         return bool(libroaring.roaring_bitmap_equals(self.__obj__, other.__obj__))
 
     def __iter__(self):
-        size = ctypes.pointer(self.__BASE_TYPE__(-1))
-        to_array = libroaring.roaring_bitmap_to_uint32_array
-        to_array.restype = ctypes.POINTER(self.__BASE_TYPE__)
-        array = to_array(self.__obj__, size)
-        for i in range(size.contents.value):
-            yield int(array[i])
+        size = len(self)
+        Array = self.__BASE_TYPE__*size
+        buff = Array()
+        libroaring.roaring_bitmap_to_uint32_array(self.__obj__, buff)
+        for i in range(size):
+            yield int(buff[i])
 
     def __repr__(self):
         values = ', '.join([str(n) for n in self])
@@ -85,6 +107,14 @@ class BitMap:
 
     def __iand__(self, other):
         return self.__binary_op_inplace__(other, libroaring.roaring_bitmap_and_inplace)
+
+    def __getitem__(self, value):
+        self.check_value(value)
+        elt = ctypes.pointer(self.__BASE_TYPE__(-1))
+        valid = libroaring.roaring_bitmap_select(self.__obj__, value, elt)
+        if not valid:
+            raise ValueError('Invalid rank.')
+        return elt.contents.value
 
     @classmethod
     def or_many(cls, bitmaps):
