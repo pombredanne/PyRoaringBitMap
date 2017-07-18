@@ -1,2 +1,17 @@
 __pycache__
 .hypothesis
+*.pyc
+*.tex
+*.aux
+*.log
+*.pickle
+*.pdf
+*.so
+build
+dist
+*.egg-info
+amalgamation_demo.*
+roaring.*
+pyroaring.cpp
+MANIFEST
+docs/_build

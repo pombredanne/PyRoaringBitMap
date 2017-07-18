@@ -1,20 +1,41 @@
-
 language: python
 
-# Ubuntu 14.04 Trusty support (for a modern version of gcc)
-sudo: required
-dist: trusty
-
-python:
-  - 3.3
-  - 3.4
+matrix:
+  include:
+    - os: linux
+      dist: trusty
+      sudo: required
+      python: 2.7
+    - os: linux
+      dist: trusty
+      sudo: required
+      python: 3.3
+    - os: linux
+      dist: trusty
+      sudo: required
+      python: 3.4
+    - os: linux
+      dist: trusty
+      sudo: required
+      python: 3.5
+    - os: linux
+      dist: trusty
+      sudo: required
+      python: 3.6
+#    - os: linux
+#      dist: trusty
+#      sudo: required
+#      python: pypy
+# Travis does not support yet Python installation on OSX (see https://github.com/travis-ci/travis-ci/issues/2312).
+# We will therefore only test with the preinstalled Python 2.7
+    - os: osx
+      osx_image: xcode8
+      language: generic
 
 install:
-    - sudo apt-get install cmake
-    - git clone https://github.com/RoaringBitmap/CRoaring.git
-    - cd CRoaring && mkdir -p build && cd build && cmake .. && make && cd ../..
-    - export LD_LIBRARY_PATH=CRoaring/build:$LD_LIBRARY_PATH
-    - pip install hypothesis
+    - pip install hypothesis Cython
 
 script:
-  - ./test.py
+    - python setup.py build_ext -i
+    - python test.py
+    - python -c "import cydoctest, pyroaring; cydoctest.testmod(pyroaring)" -v
