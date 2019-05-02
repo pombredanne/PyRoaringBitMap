@@ -3,9 +3,7 @@
 import sys
 import timeit
 from pandas import DataFrame, Series
-import pickle
 import random
-import array
 try:
     import tabulate
     has_tabulate = True
@@ -35,17 +33,37 @@ except ImportError:
     sys.stderr.write('Warning: could not import sortedcontainers\n')
     sys.stderr.write('         see https://github.com/grantjenks/sorted_containers\n')
 
+try:
+    from croaring import BitSet
+    classes['python-croaring'] = BitSet
+except ImportError:
+    sys.stderr.write('Warning: could not import croaring\n')
+    sys.stderr.write('         see https://github.com/sunzhaoping/python-croaring\n')
+
+import_str = 'import array, pickle; from __main__ import %s' % (','.join(
+    ['get_list', 'get_range', 'random', 'size', 'universe_size'] +
+    [cls.__name__ for cls in classes.values() if cls is not set]))
+
+
 def run_exp(stmt, setup, number):
+    setup = '%s ; %s' % (import_str, setup)
     try:
-        return timeit.timeit(stmt=stmt, setup=setup, number=number, globals=globals())/number
+        return timeit.timeit(stmt=stmt, setup=setup, number=number)/number
     except Exception as e:
         return float('nan')
 
+
 def get_range():
-    return range(0, universe_size, int(1/density))
+    r = (0, universe_size, int(1/density))
+    try:
+        return xrange(*r)
+    except NameError:
+        return range(*r)
+
 
 def get_list():
     return random.sample(range(universe_size), size)
+
 
 constructor = 'x={class_name}(values)'
 simple_setup_constructor = 'x={class_name}(get_list());val=random.randint(0, universe_size)'
@@ -71,14 +89,17 @@ experiments = [
     ('subset test', (equal_setup_constructor, 'x<=y')),
     # Export
     ('conversion to list', (simple_setup_constructor, 'list(x)')),
-    ('pickle dump & load', (simple_setup_constructor, 'pickle.loads(pickle.dumps(x))')),
+    ('pickle dump & load', (simple_setup_constructor, 'pickle.loads(pickle.dumps(x, protocol=pickle.HIGHEST_PROTOCOL))')),
     ('"naive" conversion to array', (simple_setup_constructor, 'array.array("I", x)')),
     ('"optimized" conversion to array', (simple_setup_constructor, 'x.to_array()')),
     # Items
     ('selection', (simple_setup_constructor, 'x[int(size/2)]')),
-    ('slice', (simple_setup_constructor, 'x[int(size/4):int(3*size/4):2]')),
+    ('contiguous slice', (simple_setup_constructor, 'x[int(size/4):int(3*size/4):1]')),
+    ('slice', (simple_setup_constructor, 'x[int(size/4):int(3*size/4):3]')),
+    ('small slice', (simple_setup_constructor, 'x[int(size/100):int(3*size/100):3]')),
 ]
 exp_dict = dict(experiments)
+
 
 def run(cls, op):
     cls_name = classes[cls].__name__
@@ -86,6 +107,7 @@ def run(cls, op):
     stmt = exp_dict[op][1].format(class_name=cls_name)
     result = run_exp(stmt=stmt, setup=setup, number=nb_exp)
     return result
+
 
 def run_all():
     df = DataFrame({
@@ -98,8 +120,9 @@ def run_all():
         result = {'operation': op}
         for cls in random.sample(list(classes), len(classes)):
             result[cls] = run(cls, op)
-        df=df.append(result, ignore_index=True)
+        df = df.append(result, ignore_index=True)
     return df
+
 
 if __name__ == '__main__':
     df = run_all()

@@ -1,7 +1,7 @@
 from libc.stdint cimport uint8_t, int32_t, uint32_t, uint64_t
 from libcpp cimport bool
 
-cdef extern from "roaring.hh":
+cdef extern from "roaring.h":
     ctypedef struct roaring_array_t:
         pass
     ctypedef struct roaring_bitmap_t:
@@ -36,15 +36,23 @@ cdef extern from "roaring.hh":
 
     roaring_bitmap_t *roaring_bitmap_create()
     void roaring_bitmap_add(roaring_bitmap_t *r, uint32_t x)
+    bool roaring_bitmap_add_checked(roaring_bitmap_t *r, uint32_t x)
     void roaring_bitmap_add_many(roaring_bitmap_t *r, size_t n_args, const uint32_t *vals)
+    void roaring_bitmap_add_range(roaring_bitmap_t *ra, uint64_t min, uint64_t max);
     void roaring_bitmap_remove(roaring_bitmap_t *r, uint32_t x)
+    inline void roaring_bitmap_remove_range(roaring_bitmap_t *ra, uint64_t min, uint64_t max)
+    bool roaring_bitmap_remove_checked(roaring_bitmap_t *r, uint32_t x)
+    void roaring_bitmap_clear(roaring_bitmap_t *r)
     bool roaring_bitmap_contains(const roaring_bitmap_t *r, uint32_t val)
+    bool roaring_bitmap_contains_range(const roaring_bitmap_t *r, uint64_t range_start, uint64_t range_end)
     roaring_bitmap_t *roaring_bitmap_copy(const roaring_bitmap_t *r)
-    roaring_bitmap_t *roaring_bitmap_from_range(uint32_t min, uint32_t max, uint32_t step)
+    roaring_bitmap_t *roaring_bitmap_from_range(uint64_t min, uint64_t max, uint32_t step)
     bool roaring_bitmap_run_optimize(roaring_bitmap_t *r)
+    size_t roaring_bitmap_shrink_to_fit(roaring_bitmap_t *r)
     void roaring_bitmap_free(roaring_bitmap_t *r)
     roaring_bitmap_t *roaring_bitmap_of_ptr(size_t n_args, const uint32_t *vals)
     uint64_t roaring_bitmap_get_cardinality(const roaring_bitmap_t *r)
+    uint64_t roaring_bitmap_range_cardinality(const roaring_bitmap_t *r, uint64_t range_start, uint64_t range_end)
     bool roaring_bitmap_is_empty(const roaring_bitmap_t *ra)
     bool roaring_bitmap_equals(const roaring_bitmap_t *r1, const roaring_bitmap_t *r2)
     bool roaring_bitmap_is_strict_subset(const roaring_bitmap_t *r1, const roaring_bitmap_t *r2)
@@ -58,7 +66,7 @@ cdef extern from "roaring.hh":
     roaring_bitmap_t *roaring_bitmap_xor(const roaring_bitmap_t *x1, const roaring_bitmap_t *x2)
     void roaring_bitmap_xor_inplace(roaring_bitmap_t *x1, const roaring_bitmap_t *x2)
     roaring_bitmap_t *roaring_bitmap_andnot(const roaring_bitmap_t *x1, const roaring_bitmap_t *x2)
-    roaring_bitmap_t *roaring_bitmap_andnot_inplace(roaring_bitmap_t *x1, const roaring_bitmap_t *x2)
+    void roaring_bitmap_andnot_inplace(roaring_bitmap_t *x1, const roaring_bitmap_t *x2)
     uint64_t roaring_bitmap_or_cardinality(const roaring_bitmap_t *x1, const roaring_bitmap_t *x2)
     uint64_t roaring_bitmap_and_cardinality(const roaring_bitmap_t *x1, const roaring_bitmap_t *x2)
     uint64_t roaring_bitmap_andnot_cardinality(const roaring_bitmap_t *x1, const roaring_bitmap_t *x2)
@@ -77,4 +85,6 @@ cdef extern from "roaring.hh":
     roaring_bitmap_t *roaring_bitmap_portable_deserialize(const char *buf)
     roaring_uint32_iterator_t *roaring_create_iterator(const roaring_bitmap_t *ra)
     bool roaring_advance_uint32_iterator(roaring_uint32_iterator_t *it)
+    uint32_t roaring_read_uint32_iterator(roaring_uint32_iterator_t *it, uint32_t* buf, uint32_t count)
+    bool roaring_move_uint32_iterator_equalorlarger(roaring_uint32_iterator_t *it, uint32_t val)
     void roaring_free_uint32_iterator(roaring_uint32_iterator_t *it)
